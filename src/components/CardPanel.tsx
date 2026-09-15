@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import ChecklistSection from "./ChecklistSection";
 import PeopleTags from "./PeopleTags";
@@ -17,10 +17,12 @@ export default function CardPanel({
   card,
   sections,
   onClose,
+  onDeleted,
 }: {
   card: BoardCard;
   sections: Section[];
   onClose: () => void;
+  onDeleted: () => void;
 }) {
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description ?? "");
@@ -30,6 +32,7 @@ export default function CardPanel({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<CardDetail | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -73,14 +76,45 @@ export default function CardPanel({
     [card.id, onChanged],
   );
 
+  const latest = useRef({ title, description, link });
+  latest.current = { title, description, link };
+  const baseline = useRef({
+    title: card.title,
+    description: card.description ?? "",
+    link: card.link ?? "",
+  });
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushText = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    const now = latest.current;
+    const base = baseline.current;
+    const patch: UpdateCardInput = {};
+    const title = now.title.trim();
+    if (title && title !== base.title) patch.title = title;
+    if (now.description !== base.description) patch.description = now.description || null;
+    if (now.link !== base.link) patch.link = now.link || null;
+    if (Object.keys(patch).length === 0) return;
+    baseline.current = { title: title || base.title, description: now.description, link: now.link };
+    save(patch);
+  }, [save]);
+
+  function scheduleSave() {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(flushText, 500);
+  }
+
+  useEffect(() => () => flushText(), [flushText]);
+
   function remove() {
-    setError(null);
+    onDeleted();
+    onClose();
     startTransition(async () => {
       try {
         await deleteCardAction(card.id);
-        onClose();
-      } catch (e) {
-        setError((e as Error).message);
+      } catch {
+        router.refresh();
       }
     });
   }
@@ -95,26 +129,40 @@ export default function CardPanel({
         className="fade-in fixed inset-0 z-30 bg-neutral-900/20 dark:bg-black/50"
       />
       <aside
-        className="panel-in fixed right-0 top-0 z-40 h-full w-full max-w-md overflow-y-auto border-l border-neutral-200 bg-white px-6 py-4 font-sans shadow-lg dark:border-neutral-800 dark:bg-neutral-900"
+        className={`panel-in fixed right-0 top-0 z-40 h-full w-full overflow-y-auto border-l border-neutral-200 bg-white py-4 font-sans shadow-lg transition-[max-width] duration-200 dark:border-neutral-800 dark:bg-neutral-900 ${
+          expanded ? "max-w-none px-6 md:px-16 lg:px-32" : "max-w-md px-6"
+        }`}
       >
         <div className="mb-2 flex items-center justify-between">
           <span className="text-xs text-neutral-500 dark:text-neutral-400">Card</span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close card"
-            className={`rounded-lg px-2 py-1 text-sm text-neutral-500 hover:text-brand-700 dark:text-neutral-400 dark:hover:text-brand-400 ${FOCUS}`}
-          >
-            ✕
-          </button>
+          <span className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setExpanded((value) => !value)}
+              aria-label={expanded ? "Exit full screen" : "Full screen"}
+              title={expanded ? "Exit full screen" : "Full screen"}
+              className={`rounded-lg px-2 py-1 text-sm text-neutral-500 hover:text-brand-700 dark:text-neutral-400 dark:hover:text-brand-400 ${FOCUS}`}
+            >
+              {expanded ? "⤡" : "⤢"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close card"
+              className={`rounded-lg px-2 py-1 text-sm text-neutral-500 hover:text-brand-700 dark:text-neutral-400 dark:hover:text-brand-400 ${FOCUS}`}
+            >
+              ✕
+            </button>
+          </span>
         </div>
 
         <input
           value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          onBlur={() => {
-            if (title.trim() && title !== current.title) save({ title: title.trim() });
+          onChange={(event) => {
+            setTitle(event.target.value);
+            scheduleSave();
           }}
+          onBlur={flushText}
           aria-label="Title"
           className={`w-full border-0 bg-transparent px-0 py-1 text-lg font-semibold text-neutral-900 dark:text-neutral-100 ${FOCUS}`}
         />
@@ -127,12 +175,11 @@ export default function CardPanel({
             id="card-description"
             value={description}
             rows={4}
-            onChange={(event) => setDescription(event.target.value)}
-            onBlur={() => {
-              if (description !== (current.description ?? "")) {
-                save({ description: description || null });
-              }
+            onChange={(event) => {
+              setDescription(event.target.value);
+              scheduleSave();
             }}
+            onBlur={flushText}
             className={INPUT}
           />
 
@@ -142,10 +189,11 @@ export default function CardPanel({
           <input
             id="card-link"
             value={link}
-            onChange={(event) => setLink(event.target.value)}
-            onBlur={() => {
-              if (link !== (current.link ?? "")) save({ link: link || null });
+            onChange={(event) => {
+              setLink(event.target.value);
+              scheduleSave();
             }}
+            onBlur={flushText}
             className={INPUT}
           />
 
@@ -192,6 +240,9 @@ export default function CardPanel({
           </div>
         </div>
 
+        {!detail && !error && (
+          <p className={`${GROUP} text-xs text-neutral-400 dark:text-neutral-500`}>Loading…</p>
+        )}
         <div className={GROUP}>
           <ChecklistSection detail={detail} onChanged={onChanged} />
         </div>

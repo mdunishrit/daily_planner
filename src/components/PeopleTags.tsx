@@ -9,12 +9,12 @@ import {
 import { FOCUS, INPUT } from "./ui";
 import type { CardDetail, Person } from "@/lib/types";
 
+/** The name being searched: text after the last `@`, or the whole input when there is no `@`. */
 function mentionQuery(text: string): string | null {
   const at = text.lastIndexOf("@");
-  if (at < 0) return null;
-  const rest = text.slice(at + 1);
-  if (rest.includes(" ")) return null;
-  return rest;
+  const rest = at < 0 ? text : text.slice(at + 1);
+  if (!rest.trim()) return null;
+  return rest.trim();
 }
 
 /** People tags on a card plus an `@` mention picker with keyboard navigation. */
@@ -26,10 +26,15 @@ export default function PeopleTags({
   onChanged: () => void;
 }) {
   const [all, setAll] = useState<Person[]>([]);
+  const [people, setPeople] = useState<Person[]>(detail?.people ?? []);
   const [text, setText] = useState("");
   const [highlight, setHighlight] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    setPeople(detail?.people ?? []);
+  }, [detail]);
 
   useEffect(() => {
     if (!detail) return;
@@ -46,7 +51,7 @@ export default function PeopleTags({
 
   const cardId = detail.card.id;
   const query = mentionQuery(text);
-  const tagged = new Set(detail.people.map((p) => p.id));
+  const tagged = new Set(people.map((p) => p.id));
   const matches =
     query === null
       ? []
@@ -54,7 +59,9 @@ export default function PeopleTags({
           (p) => !tagged.has(p.id) && p.name.toLowerCase().includes(query.toLowerCase()),
         );
 
-  function run(work: () => Promise<void>) {
+  function run(next: Person[], work: () => Promise<void>) {
+    const before = people;
+    setPeople(next);
     setError(null);
     startTransition(async () => {
       try {
@@ -62,21 +69,21 @@ export default function PeopleTags({
         onChanged();
       } catch (e) {
         setError((e as Error).message);
+        setPeople(before);
       }
     });
   }
 
   function pick(person: Person) {
-    run(async () => {
-      await addPersonToCardAction(cardId, person.id);
-      setText("");
-    });
+    setText("");
+    run([...people, person], () => addPersonToCardAction(cardId, person.id));
   }
 
   function remove(personId: string) {
-    run(async () => {
-      await removePersonFromCardAction(cardId, personId);
-    });
+    run(
+      people.filter((p) => p.id !== personId),
+      () => removePersonFromCardAction(cardId, personId),
+    );
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -102,7 +109,7 @@ export default function PeopleTags({
         People
       </label>
       <div className="mb-2 flex flex-wrap gap-1">
-        {detail.people.map((person) => (
+        {people.map((person) => (
           <span
             key={person.id}
             title={`${person.name} (${person.email})`}
@@ -112,7 +119,6 @@ export default function PeopleTags({
             <button
               type="button"
               onClick={() => remove(person.id)}
-              disabled={pending}
               aria-label={`Remove ${person.name}`}
               className={`text-neutral-500 hover:text-red-600 dark:hover:text-red-400 ${FOCUS}`}
             >
@@ -131,7 +137,7 @@ export default function PeopleTags({
           aria-controls="mention-list"
           onChange={(event) => setText(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Type @ to tag a person"
+          placeholder="Type a name to tag a person"
           className={INPUT}
         />
         {query !== null && (
@@ -150,7 +156,6 @@ export default function PeopleTags({
                     type="button"
                     onMouseEnter={() => setHighlight(index)}
                     onClick={() => pick(person)}
-                    disabled={pending}
                     title={person.email}
                     className={`block w-full px-3 py-2 text-left ${
                       index === highlight

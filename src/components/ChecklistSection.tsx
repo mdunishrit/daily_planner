@@ -24,10 +24,14 @@ export default function ChecklistSection({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   useEffect(() => {
-    setItems(detail?.checklist ?? []);
+    const server = detail?.checklist ?? [];
+    setItems((local) => [
+      ...server,
+      ...local.filter((i) => i.id.startsWith("temp-") && !server.some((s) => s.text === i.text)),
+    ]);
   }, [detail]);
 
   if (!detail) return null;
@@ -35,7 +39,9 @@ export default function ChecklistSection({
   const cardId = detail.card.id;
   const doneCount = items.filter((i) => i.is_done).length;
 
-  function run(work: () => Promise<void>) {
+  function run(next: ChecklistItem[], work: () => Promise<void>) {
+    const before = items;
+    setItems(next);
     setError(null);
     startTransition(async () => {
       try {
@@ -43,43 +49,57 @@ export default function ChecklistSection({
         onChanged();
       } catch (e) {
         setError((e as Error).message);
+        setItems(before);
       }
     });
+  }
+
+  function replace(id: string, item: ChecklistItem) {
+    setItems((list) => list.map((i) => (i.id === id ? item : i)));
   }
 
   function add() {
     const text = draft.trim();
     if (!text) return;
-    run(async () => {
-      const item = await addChecklistItemAction(cardId, text);
-      setItems((list) => [...list, item]);
-      setDraft("");
+    const temp: ChecklistItem = {
+      id: `temp-${Date.now()}`,
+      card_id: cardId,
+      text,
+      is_done: false,
+      position: items.length,
+      created_at: new Date().toISOString(),
+    };
+    setDraft("");
+    run([...items, temp], async () => {
+      replace(temp.id, await addChecklistItemAction(cardId, text));
     });
   }
 
   function toggle(id: string) {
-    run(async () => {
-      const item = await toggleChecklistItemAction(id);
-      setItems((list) => list.map((i) => (i.id === id ? item : i)));
-    });
+    if (id.startsWith("temp-")) return;
+    run(
+      items.map((i) => (i.id === id ? { ...i, is_done: !i.is_done } : i)),
+      async () => replace(id, await toggleChecklistItemAction(id)),
+    );
   }
 
   function commitEdit(id: string) {
     const text = editText.trim();
     setEditingId(null);
     const current = items.find((i) => i.id === id);
-    if (!text || !current || text === current.text) return;
-    run(async () => {
-      const item = await updateChecklistItemAction(id, text);
-      setItems((list) => list.map((i) => (i.id === id ? item : i)));
-    });
+    if (!text || !current || text === current.text || id.startsWith("temp-")) return;
+    run(
+      items.map((i) => (i.id === id ? { ...i, text } : i)),
+      async () => replace(id, await updateChecklistItemAction(id, text)),
+    );
   }
 
   function remove(id: string) {
-    run(async () => {
-      await deleteChecklistItemAction(id);
-      setItems((list) => list.filter((i) => i.id !== id));
-    });
+    if (id.startsWith("temp-")) return;
+    run(
+      items.filter((i) => i.id !== id),
+      () => deleteChecklistItemAction(id),
+    );
   }
 
   function move(index: number, delta: number) {
@@ -88,10 +108,8 @@ export default function ChecklistSection({
     const next = [...items];
     const [moved] = next.splice(index, 1);
     next.splice(target, 0, moved);
-    setItems(next);
-    run(async () => {
-      await reorderChecklistAction(cardId, next.map((i) => i.id));
-    });
+    if (next.some((i) => i.id.startsWith("temp-"))) return;
+    run(next, () => reorderChecklistAction(cardId, next.map((i) => i.id)));
   }
 
   return (
@@ -109,7 +127,6 @@ export default function ChecklistSection({
             <input
               type="checkbox"
               checked={item.is_done}
-              disabled={pending}
               onChange={() => toggle(item.id)}
               className={`h-4 w-4 accent-brand-500 ${FOCUS}`}
             />
@@ -139,7 +156,7 @@ export default function ChecklistSection({
             <button
               type="button"
               onClick={() => move(index, -1)}
-              disabled={pending || index === 0}
+              disabled={index === 0}
               aria-label="Move up"
               className={`rounded px-1 text-xs text-neutral-500 disabled:opacity-30 dark:text-neutral-400 ${FOCUS}`}
             >
@@ -148,7 +165,7 @@ export default function ChecklistSection({
             <button
               type="button"
               onClick={() => move(index, 1)}
-              disabled={pending || index === items.length - 1}
+              disabled={index === items.length - 1}
               aria-label="Move down"
               className={`rounded px-1 text-xs text-neutral-500 disabled:opacity-30 dark:text-neutral-400 ${FOCUS}`}
             >
@@ -157,7 +174,6 @@ export default function ChecklistSection({
             <button
               type="button"
               onClick={() => remove(item.id)}
-              disabled={pending}
               aria-label="Delete item"
               className={`rounded px-1 text-xs text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400 ${FOCUS}`}
             >
@@ -177,12 +193,7 @@ export default function ChecklistSection({
           }}
           className={`${INPUT} flex-1`}
         />
-        <button
-          type="button"
-          onClick={add}
-          disabled={pending}
-          className={BUTTON_PRIMARY}
-        >
+        <button type="button" onClick={add} className={BUTTON_PRIMARY}>
           Add
         </button>
       </div>

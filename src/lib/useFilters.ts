@@ -1,10 +1,9 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
-/** Board filter state kept in the URL query string. */
+/** Board filter state kept in the URL query string. Updates the URL without a server round trip. */
 export function useFilters() {
-  const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
 
@@ -17,7 +16,7 @@ export function useFilters() {
     if (value) next.set(key, value);
     else next.delete(key);
     const query = next.toString();
-    router.push(query ? `${pathname}?${query}` : pathname);
+    window.history.pushState(null, "", query ? `${pathname}?${query}` : pathname);
   }
 
   function toggle(key: string, value: string) {
@@ -25,7 +24,7 @@ export function useFilters() {
   }
 
   function clear() {
-    router.push(pathname);
+    window.history.pushState(null, "", pathname);
   }
 
   const active = ["person", "section", "priority", "today", "archived"].some((key) => get(key));

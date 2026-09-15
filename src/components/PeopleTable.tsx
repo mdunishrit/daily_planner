@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import {
   createPersonAction,
   deletePersonAction,
@@ -13,7 +12,7 @@ import type { Person } from "@/lib/types";
 const CELL = "px-4 py-3 text-sm text-neutral-700 dark:text-neutral-200";
 
 export default function PeopleTable({ people }: { people: Person[] }) {
-  const router = useRouter();
+  const [list, setList] = useState(people);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
@@ -21,27 +20,39 @@ export default function PeopleTable({ people }: { people: Person[] }) {
   const [editEmail, setEditEmail] = useState("");
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
-  function run(work: () => Promise<void>) {
+  useEffect(() => {
+    setList(people);
+  }, [people]);
+
+  function run(next: Person[], work: () => Promise<unknown>) {
+    const before = list;
+    setList(next);
     setError(null);
     startTransition(async () => {
       try {
         await work();
-        router.refresh();
       } catch (e) {
         setError((e as Error).message);
+        setList(before);
       }
     });
   }
 
   function add() {
-    if (!name.trim() || !email.trim()) return;
-    run(async () => {
-      await createPersonAction(name.trim(), email.trim());
-      setName("");
-      setEmail("");
-    });
+    const n = name.trim();
+    const m = email.trim();
+    if (!n || !m) return;
+    const temp: Person = {
+      id: `temp-${Date.now()}`,
+      name: n,
+      email: m,
+      created_at: new Date().toISOString(),
+    };
+    setName("");
+    setEmail("");
+    run([...list, temp], () => createPersonAction(n, m));
   }
 
   function startEdit(person: Person) {
@@ -51,22 +62,33 @@ export default function PeopleTable({ people }: { people: Person[] }) {
   }
 
   function saveEdit(personId: string) {
-    run(async () => {
-      await updatePersonAction(personId, { name: editName.trim(), email: editEmail.trim() });
-      setEditId(null);
-    });
+    const n = editName.trim();
+    const m = editEmail.trim();
+    setEditId(null);
+    if (!n || !m) return;
+    run(
+      list.map((p) => (p.id === personId ? { ...p, name: n, email: m } : p)),
+      () => updatePersonAction(personId, { name: n, email: m }),
+    );
   }
 
   function remove(personId: string) {
-    run(async () => {
-      await deletePersonAction(personId);
-      setConfirmId(null);
-    });
+    setConfirmId(null);
+    run(
+      list.filter((p) => p.id !== personId),
+      () => deletePersonAction(personId),
+    );
   }
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-4 flex flex-wrap gap-2">
+      <form
+        className="mb-4 flex flex-wrap gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          add();
+        }}
+      >
         <input
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -79,10 +101,10 @@ export default function PeopleTable({ people }: { people: Person[] }) {
           placeholder="Email"
           className={`${INPUT} w-64`}
         />
-        <button type="button" onClick={add} disabled={pending} className={BUTTON_PRIMARY}>
+        <button type="submit" className={BUTTON_PRIMARY}>
           Add person
         </button>
-      </div>
+      </form>
 
       {error && <p className="mb-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
@@ -96,7 +118,7 @@ export default function PeopleTable({ people }: { people: Person[] }) {
             </tr>
           </thead>
           <tbody>
-            {people.map((person) => (
+            {list.map((person) => (
               <tr
                 key={person.id}
                 className="border-b border-neutral-100 last:border-0 dark:border-neutral-800"
@@ -114,6 +136,9 @@ export default function PeopleTable({ people }: { people: Person[] }) {
                       <input
                         value={editEmail}
                         onChange={(event) => setEditEmail(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") saveEdit(person.id);
+                        }}
                         className={INPUT}
                       />
                     </td>
@@ -121,7 +146,6 @@ export default function PeopleTable({ people }: { people: Person[] }) {
                       <button
                         type="button"
                         onClick={() => saveEdit(person.id)}
-                        disabled={pending}
                         className={`mr-2 ${BUTTON_PRIMARY}`}
                       >
                         Save
@@ -140,46 +164,49 @@ export default function PeopleTable({ people }: { people: Person[] }) {
                     <td className={CELL}>{person.name}</td>
                     <td className={CELL}>{person.email}</td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => startEdit(person)}
-                        className={`mr-2 ${BUTTON_QUIET}`}
-                      >
-                        Edit
-                      </button>
-                      {confirmId === person.id ? (
+                      {!person.id.startsWith("temp-") && (
                         <>
                           <button
                             type="button"
-                            onClick={() => remove(person.id)}
-                            disabled={pending}
-                            className={`mr-2 rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950 ${FOCUS}`}
+                            onClick={() => startEdit(person)}
+                            className={`mr-2 ${BUTTON_QUIET}`}
                           >
-                            Confirm remove
+                            Edit
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmId(null)}
-                            className={`rounded-lg px-3 py-2 text-sm text-neutral-500 dark:text-neutral-400 ${FOCUS}`}
-                          >
-                            Cancel
-                          </button>
+                          {confirmId === person.id ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => remove(person.id)}
+                                className={`mr-2 rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950 ${FOCUS}`}
+                              >
+                                Confirm remove
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmId(null)}
+                                className={`rounded-lg px-3 py-2 text-sm text-neutral-500 dark:text-neutral-400 ${FOCUS}`}
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmId(person.id)}
+                              className={`rounded-lg px-3 py-2 text-sm text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400 ${FOCUS}`}
+                            >
+                              Remove
+                            </button>
+                          )}
                         </>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setConfirmId(person.id)}
-                          className={`rounded-lg px-3 py-2 text-sm text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400 ${FOCUS}`}
-                        >
-                          Remove
-                        </button>
                       )}
                     </td>
                   </>
                 )}
               </tr>
             ))}
-            {people.length === 0 && (
+            {list.length === 0 && (
               <tr>
                 <td colSpan={3} className="px-4 py-4 text-sm text-neutral-500 dark:text-neutral-400">
                   No people yet.

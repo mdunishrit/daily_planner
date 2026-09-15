@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConnectionError from "@/components/ConnectionError";
 import PeopleTable from "@/components/PeopleTable";
 import ThemeToggle from "@/components/ThemeToggle";
 import { BUTTON_QUIET } from "@/components/ui";
@@ -19,7 +20,12 @@ export default async function PeoplePage() {
     );
   }
 
-  const people = await listPeople();
+  let people;
+  try {
+    people = await listPeople();
+  } catch (e) {
+    return <ConnectionError message={(e as Error).message} href="/people" />;
+  }
 
   return (
     <main className="min-h-screen bg-surface font-sans dark:bg-neutral-950">

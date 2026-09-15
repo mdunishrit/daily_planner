@@ -29,15 +29,48 @@ const COLUMNS: Array<{ status: Status; label: string }> = [
   { status: "done", label: "Done" },
 ];
 
+const WEEK = 7 * 24 * 60 * 60 * 1000;
+
+function isToday(value: string | null) {
+  if (!value) return false;
+  const date = new Date(value);
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+}
+
+function isArchived(card: BoardCard) {
+  return (
+    card.status === "done" &&
+    !!card.done_at &&
+    Date.now() - new Date(card.done_at).getTime() > WEEK
+  );
+}
+
+/** Applies the URL filters (section, priority, person, today, archived) to one card. */
+function matchesFilters(card: BoardCard, get: (key: string) => string) {
+  if (get("archived") !== "1" && isArchived(card)) return false;
+  if (get("section") && card.section_id !== get("section")) return false;
+  if (get("priority") && card.priority !== get("priority")) return false;
+  if (get("person") && !card.people.some((p) => p.id === get("person"))) return false;
+  if (get("today") === "1" && !isToday(card.created_at) && !isToday(card.updated_at)) return false;
+  return true;
+}
+
 /** The board: filter bar, section chips, and three drag-and-drop status columns. */
 export default function Board({
   sections,
   cards,
   people,
+  cardCounts,
 }: {
   sections: Section[];
   cards: BoardCard[];
   people: Person[];
+  cardCounts: Record<string, number>;
 }) {
   const filters = useFilters();
   const [selected, setSelected] = useState<BoardCard | null>(null);
@@ -51,6 +84,8 @@ export default function Board({
   useEffect(() => {
     setLocalCards(cards);
   }, [cards]);
+
+  const visible = localCards.filter((card) => matchesFilters(card, filters.get));
 
   function columnCardsOf(list: BoardCard[], status: Status) {
     return list.filter((c) => c.status === status).sort((a, b) => a.position - b.position);
@@ -169,7 +204,7 @@ export default function Board({
           <FilterBar people={people} />
         </div>
         <div className="border-t border-neutral-200 px-6 py-2 dark:border-neutral-800">
-          <SectionManager sections={sections} />
+          <SectionManager sections={sections} cardCounts={cardCounts} />
         </div>
       </header>
 
@@ -189,7 +224,7 @@ export default function Board({
         >
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             {COLUMNS.map((col) => {
-              const columnCards = columnCardsOf(localCards, col.status);
+              const columnCards = columnCardsOf(visible, col.status);
               return (
                 <section key={col.status}>
                   <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand-700 dark:text-brand-400">
@@ -224,7 +259,12 @@ export default function Board({
       </main>
 
       {selected && (
-        <CardPanel card={selected} sections={sections} onClose={() => setSelected(null)} />
+        <CardPanel
+          card={selected}
+          sections={sections}
+          onClose={() => setSelected(null)}
+          onDeleted={() => setLocalCards((prev) => prev.filter((c) => c.id !== selected.id))}
+        />
       )}
     </div>
   );

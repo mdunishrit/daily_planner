@@ -1,39 +1,11 @@
 import Board from "@/components/Board";
+import ConnectionError from "@/components/ConnectionError";
 import { getSupabase } from "@/lib/supabase";
 import { listBoard, listPeople } from "@/lib/store";
-import type { BoardCard, Priority } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-function isToday(value: string | null) {
-  if (!value) return false;
-  const date = new Date(value);
-  const now = new Date();
-  return (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
-  );
-}
-
-function filterCards(
-  cards: BoardCard[],
-  filters: { person?: string; section?: string; priority?: string; today: boolean },
-) {
-  return cards.filter((card) => {
-    if (filters.section && card.section_id !== filters.section) return false;
-    if (filters.priority && card.priority !== (filters.priority as Priority)) return false;
-    if (filters.person && !card.people.some((p) => p.id === filters.person)) return false;
-    if (filters.today && !isToday(card.created_at) && !isToday(card.updated_at)) return false;
-    return true;
-  });
-}
-
-export default async function BoardPage({
-  searchParams,
-}: {
-  searchParams?: { [key: string]: string | string[] | undefined };
-}) {
+export default async function BoardPage() {
   if (!getSupabase()) {
     return (
       <main className="p-8">
@@ -45,20 +17,20 @@ export default async function BoardPage({
     );
   }
 
-  const one = (key: string) => {
-    const value = searchParams?.[key];
-    return Array.isArray(value) ? value[0] : value;
-  };
+  let board;
+  let people;
+  try {
+    [board, people] = await Promise.all([listBoard({ includeArchived: true }), listPeople()]);
+  } catch (e) {
+    return <ConnectionError message={(e as Error).message} href="/" />;
+  }
 
-  const board = await listBoard({ includeArchived: one("archived") === "1" });
-  const people = await listPeople();
+  const cardCounts: Record<string, number> = {};
+  for (const card of board.cards) {
+    cardCounts[card.section_id] = (cardCounts[card.section_id] ?? 0) + 1;
+  }
 
-  const cards = filterCards(board.cards, {
-    person: one("person"),
-    section: one("section"),
-    priority: one("priority"),
-    today: one("today") === "1",
-  });
-
-  return <Board sections={board.sections} cards={cards} people={people} />;
+  return (
+    <Board sections={board.sections} cards={board.cards} people={people} cardCounts={cardCounts} />
+  );
 }
