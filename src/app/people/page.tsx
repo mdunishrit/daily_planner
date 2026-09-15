@@ -28,9 +28,9 @@ export default async function PeoplePage() {
   }
 
   return (
-    <main className="min-h-screen bg-surface font-sans dark:bg-neutral-950">
-      <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-3 dark:border-neutral-800 dark:bg-neutral-900">
-        <h1 className="text-base font-semibold text-brand-700 dark:text-brand-400">People</h1>
+    <main className="min-h-screen bg-bg font-sans">
+      <header className="flex items-center justify-between border-b border-line bg-surface px-6 py-3">
+        <h1 className="text-base font-semibold text-accent ">People</h1>
         <div className="flex items-center gap-2">
           <Link href="/" className={BUTTON_QUIET}>
             Board

@@ -4,7 +4,7 @@ import Link from "next/link";
 export default function ConnectionError({ message, href }: { message: string; href: string }) {
   return (
     <main className="p-8 font-sans">
-      <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">Daily Planner</h1>
+      <h1 className="text-xl font-semibold text-ink ">Daily Planner</h1>
       <div className="mt-4 max-w-xl rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
         <p className="font-medium">Cannot reach the database.</p>
         <p className="mt-1">

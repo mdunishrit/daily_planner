@@ -6,16 +6,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: "#eef7ff",
-          100: "#d5e5ee",
-          400: "#38a9ff",
-          500: "#0089f7",
-          600: "#007cc3",
-          700: "#173a52",
-          900: "#233a51",
+        bg: "var(--bg)",
+        surface: "var(--surface)",
+        card: "var(--card)",
+        line: "var(--border)",
+        ink: "var(--text)",
+        muted: "var(--muted)",
+        danger: "var(--danger)",
+        accent: {
+          DEFAULT: "var(--accent)",
+          hover: "var(--accent-hover)",
+          soft: "var(--accent-soft)",
         },
-        surface: "#F5F5F5",
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+      },
+      boxShadow: {
+        card: "var(--shadow-card)",
       },
       fontFamily: {
         sans: [

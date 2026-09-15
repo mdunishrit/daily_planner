@@ -109,14 +109,19 @@ export default function ChecklistSection({
     const [moved] = next.splice(index, 1);
     next.splice(target, 0, moved);
     if (next.some((i) => i.id.startsWith("temp-"))) return;
-    run(next, () => reorderChecklistAction(cardId, next.map((i) => i.id)));
+    run(next, () =>
+      reorderChecklistAction(
+        cardId,
+        next.map((i) => i.id),
+      ),
+    );
   }
 
   return (
     <section>
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs text-neutral-500 dark:text-neutral-400">Checklist</span>
-        <span className="text-xs text-neutral-500 dark:text-neutral-400">
+        <span className="text-xs text-muted ">Checklist</span>
+        <span className="text-xs text-muted ">
           {doneCount}/{items.length}
         </span>
       </div>
@@ -128,7 +133,7 @@ export default function ChecklistSection({
               type="checkbox"
               checked={item.is_done}
               onChange={() => toggle(item.id)}
-              className={`h-4 w-4 accent-brand-500 ${FOCUS}`}
+              className={`h-4 w-4 accent-accent ${FOCUS}`}
             />
             {editingId === item.id ? (
               <input
@@ -148,7 +153,7 @@ export default function ChecklistSection({
                   setEditingId(item.id);
                   setEditText(item.text);
                 }}
-                className={`flex-1 cursor-text ${item.is_done ? "text-neutral-400 line-through dark:text-neutral-500" : "text-neutral-700 dark:text-neutral-200"}`}
+                className={`flex-1 cursor-text ${item.is_done ? "text-muted line-through " : "text-ink "}`}
               >
                 {item.text}
               </span>
@@ -158,7 +163,7 @@ export default function ChecklistSection({
               onClick={() => move(index, -1)}
               disabled={index === 0}
               aria-label="Move up"
-              className={`rounded px-1 text-xs text-neutral-500 disabled:opacity-30 dark:text-neutral-400 ${FOCUS}`}
+              className={`rounded px-1 text-xs text-muted disabled:opacity-30  ${FOCUS}`}
             >
               ↑
             </button>
@@ -167,7 +172,7 @@ export default function ChecklistSection({
               onClick={() => move(index, 1)}
               disabled={index === items.length - 1}
               aria-label="Move down"
-              className={`rounded px-1 text-xs text-neutral-500 disabled:opacity-30 dark:text-neutral-400 ${FOCUS}`}
+              className={`rounded px-1 text-xs text-muted disabled:opacity-30  ${FOCUS}`}
             >
               ↓
             </button>
@@ -175,7 +180,7 @@ export default function ChecklistSection({
               type="button"
               onClick={() => remove(item.id)}
               aria-label="Delete item"
-              className={`rounded px-1 text-xs text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400 ${FOCUS}`}
+              className={`rounded px-1 text-xs text-muted hover:text-danger   ${FOCUS}`}
             >
               ✕
             </button>
@@ -198,7 +203,7 @@ export default function ChecklistSection({
         </button>
       </div>
 
-      {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mt-2 text-sm text-danger ">{error}</p>}
     </section>
   );
 }

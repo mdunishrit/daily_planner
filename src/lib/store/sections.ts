@@ -17,11 +17,7 @@ export async function createSection(name: string): Promise<Section> {
     .limit(1);
   if (lastError) throw new Error(lastError.message);
   const position = last && last.length > 0 ? last[0].position + 1 : 0;
-  const { data, error } = await db
-    .from("sections")
-    .insert({ name, position })
-    .select("*")
-    .single();
+  const { data, error } = await db.from("sections").insert({ name, position }).select("*").single();
   if (error) throw new Error(error.message);
   return data as Section;
 }

@@ -1,11 +1,16 @@
-import Board from "@/components/Board";
+import { Suspense } from "react";
+import CommandShell from "@/components/command/CommandShell";
 import ConnectionError from "@/components/ConnectionError";
 import { getSupabase } from "@/lib/supabase";
 import { listBoard, listPeople } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
-export default async function BoardPage() {
+export default async function BoardPage({
+  searchParams,
+}: {
+  searchParams?: { archived?: string };
+}) {
   if (!getSupabase()) {
     return (
       <main className="p-8">
@@ -17,20 +22,19 @@ export default async function BoardPage() {
     );
   }
 
+  const includeArchived = searchParams?.archived === "1";
+
   let board;
   let people;
   try {
-    [board, people] = await Promise.all([listBoard({ includeArchived: true }), listPeople()]);
+    [board, people] = await Promise.all([listBoard({ includeArchived }), listPeople()]);
   } catch (e) {
     return <ConnectionError message={(e as Error).message} href="/" />;
   }
 
-  const cardCounts: Record<string, number> = {};
-  for (const card of board.cards) {
-    cardCounts[card.section_id] = (cardCounts[card.section_id] ?? 0) + 1;
-  }
-
   return (
-    <Board sections={board.sections} cards={board.cards} people={people} cardCounts={cardCounts} />
+    <Suspense fallback={null}>
+      <CommandShell sections={board.sections} cards={board.cards} people={people} />
+    </Suspense>
   );
 }
