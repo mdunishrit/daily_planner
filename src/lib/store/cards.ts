@@ -66,7 +66,11 @@ export async function getCardDetail(cardId: string): Promise<CardDetail | null> 
   const [checklist, links, activities] = await Promise.all([
     db.from("checklist_items").select("*").eq("card_id", cardId).order("position"),
     db.from("card_people").select("person_id, people(*)").eq("card_id", cardId),
-    db.from("activities").select("*").eq("card_id", cardId).order("created_at", { ascending: false }),
+    db
+      .from("activities")
+      .select("*")
+      .eq("card_id", cardId)
+      .order("created_at", { ascending: false }),
   ]);
   if (checklist.error) throw new Error(checklist.error.message);
   if (links.error) throw new Error(links.error.message);
@@ -142,11 +146,7 @@ export async function deleteCard(cardId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export async function moveCard(
-  cardId: string,
-  status: Status,
-  position: number,
-): Promise<void> {
+export async function moveCard(cardId: string, status: Status, position: number): Promise<void> {
   const db = requireSupabase();
   const { data: before, error: readError } = await db
     .from("cards")

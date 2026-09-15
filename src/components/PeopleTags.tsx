@@ -21,9 +21,11 @@ function mentionQuery(text: string): string | null {
 export default function PeopleTags({
   detail,
   onChanged,
+  compact = false,
 }: {
   detail: CardDetail | null;
   onChanged: () => void;
+  compact?: boolean;
 }) {
   const [all, setAll] = useState<Person[]>([]);
   const [people, setPeople] = useState<Person[]>(detail?.people ?? []);
@@ -55,9 +57,7 @@ export default function PeopleTags({
   const matches =
     query === null
       ? []
-      : all.filter(
-          (p) => !tagged.has(p.id) && p.name.toLowerCase().includes(query.toLowerCase()),
-        );
+      : all.filter((p) => !tagged.has(p.id) && p.name.toLowerCase().includes(query.toLowerCase()));
 
   function run(next: Person[], work: () => Promise<void>) {
     const before = people;
@@ -105,22 +105,24 @@ export default function PeopleTags({
 
   return (
     <div>
-      <label className="mb-2 block text-xs text-neutral-500 dark:text-neutral-400" htmlFor="mention">
-        People
-      </label>
+      {!compact && (
+        <label className="mb-2 block text-xs text-muted " htmlFor="mention">
+          People
+        </label>
+      )}
       <div className="mb-2 flex flex-wrap gap-1">
         {people.map((person) => (
           <span
             key={person.id}
             title={`${person.name} (${person.email})`}
-            className="flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+            className="flex items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-xs text-ink  "
           >
             {person.name}
             <button
               type="button"
               onClick={() => remove(person.id)}
               aria-label={`Remove ${person.name}`}
-              className={`text-neutral-500 hover:text-red-600 dark:hover:text-red-400 ${FOCUS}`}
+              className={`text-muted hover:text-danger  ${FOCUS}`}
             >
               ×
             </button>
@@ -137,18 +139,16 @@ export default function PeopleTags({
           aria-controls="mention-list"
           onChange={(event) => setText(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Type a name to tag a person"
-          className={INPUT}
+          placeholder={compact ? "Add person" : "Type a name to tag a person"}
+          className={compact ? `${INPUT} px-2 py-1 text-[13px]` : INPUT}
         />
         {query !== null && (
           <ul
             id="mention-list"
-            className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-neutral-200 bg-white text-sm shadow-md dark:border-neutral-800 dark:bg-neutral-900"
+            className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-line bg-card text-sm shadow-md"
           >
             {matches.length === 0 ? (
-              <li className="px-3 py-2 text-neutral-500 dark:text-neutral-400">
-                No match. Add in People settings
-              </li>
+              <li className="px-3 py-2 text-muted ">No match. Add in People settings</li>
             ) : (
               matches.map((person, index) => (
                 <li key={person.id}>
@@ -158,9 +158,7 @@ export default function PeopleTags({
                     onClick={() => pick(person)}
                     title={person.email}
                     className={`block w-full px-3 py-2 text-left ${
-                      index === highlight
-                        ? "bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400"
-                        : "text-neutral-700 dark:text-neutral-200"
+                      index === highlight ? "bg-accent-soft text-accent  " : "text-ink "
                     }`}
                   >
                     {person.name}
@@ -172,7 +170,7 @@ export default function PeopleTags({
         )}
       </div>
 
-      {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mt-2 text-sm text-danger ">{error}</p>}
     </div>
   );
 }

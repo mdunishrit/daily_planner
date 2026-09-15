@@ -11,11 +11,7 @@ export async function listBoard(options: { includeArchived?: boolean } = {}): Pr
   if (sectionsResult.error) throw new Error(sectionsResult.error.message);
   const sections = (sectionsResult.data ?? []) as Section[];
 
-  const cardsResult = await db
-    .from("cards")
-    .select("*")
-    .order("status")
-    .order("position");
+  const cardsResult = await db.from("cards").select("*").order("status").order("position");
   if (cardsResult.error) throw new Error(cardsResult.error.message);
   let cards = (cardsResult.data ?? []) as Card[];
 
@@ -43,7 +39,10 @@ export async function listBoard(options: { includeArchived?: boolean } = {}): Pr
       checklistTotal.set(item.card_id, (checklistTotal.get(item.card_id) ?? 0) + 1);
       if (item.is_done) checklistDone.set(item.card_id, (checklistDone.get(item.card_id) ?? 0) + 1);
     }
-    const linkRows = (links.data ?? []) as unknown as Array<{ card_id: string; people: Person | null }>;
+    const linkRows = (links.data ?? []) as unknown as Array<{
+      card_id: string;
+      people: Person | null;
+    }>;
     for (const link of linkRows) {
       if (!link.people) continue;
       const list = peopleByCard.get(link.card_id) ?? [];

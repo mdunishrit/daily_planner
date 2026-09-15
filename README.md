@@ -3,6 +3,27 @@
 Single-user leadership action tracker. Kanban board with Sections, Cards, People, and an Activity timeline.
 See `SPEC.md` for the full spec and `CONTEXT.md` for the glossary.
 
+## Command Board
+
+The board at `/` is one screen with three parts:
+
+- **Rail** (left, 56px): board home, People link, navigator toggle, dark-mode toggle.
+- **Navigator** (240px): Views (All cards, Today, High priority), Sections with a rename/reorder/delete menu, People, and the "Show archived" switch.
+- **Header and view**: breadcrumb, search, Board/List switch, Clear filters, and a quick-add box. Board view shows three status columns. List view shows dense rows grouped by status. Drag works in both. Click a card to open its dialog.
+
+Filters live in the URL query string, so a filtered board can be bookmarked.
+
+### Keyboard shortcuts
+
+- `/` — focus search.
+- `Escape` in search — clear the search text.
+- `[` — show or hide the navigator.
+- `Escape` in the card dialog — close the dialog.
+
+### Dark mode
+
+The rail toggle switches the theme and saves the choice in `localStorage`. A first visit follows the operating system setting. A small script in `layout.tsx` applies the theme before paint, so there is no flash.
+
 ## Setup
 
 1. Install dependencies:

@@ -8,10 +8,12 @@ import {
   updateSectionAction,
 } from "@/app/actions/sections";
 import { BUTTON_PRIMARY, FOCUS, INPUT } from "./ui";
-import type { ApplySections } from "./SectionManager";
 import type { Section } from "@/lib/types";
 
-const ITEM = `rounded-md px-2 py-1 text-left text-xs text-neutral-600 hover:bg-neutral-100 disabled:opacity-40 dark:text-neutral-300 dark:hover:bg-neutral-800 ${FOCUS}`;
+/** Applies an optimistic section list, then runs the server work and rolls back on failure. */
+export type ApplySections = (next: Section[], work: () => Promise<unknown>) => void;
+
+const ITEM = `rounded-md px-2 py-1 text-left text-xs text-muted hover:bg-bg disabled:opacity-40   ${FOCUS}`;
 
 /** Per-section menu: rename, reorder, and delete with a target section for its cards. */
 export default function SectionMenu({
@@ -126,7 +128,7 @@ export default function SectionMenu({
             setRenaming(false);
             setName(section.name);
           }}
-          className={`rounded-lg px-2 py-0.5 text-xs text-neutral-500 dark:text-neutral-400 ${FOCUS}`}
+          className={`rounded-lg px-2 py-0.5 text-xs text-muted  ${FOCUS}`}
         >
           Cancel
         </button>
@@ -140,12 +142,12 @@ export default function SectionMenu({
         type="button"
         aria-label={`Section menu ${section.name}`}
         onClick={() => setOpen((value) => !value)}
-        className={`rounded-md px-1 text-xs text-neutral-500 hover:text-brand-700 dark:text-neutral-400 dark:hover:text-brand-400 ${FOCUS}`}
+        className={`rounded-md px-1 text-xs text-muted hover:text-accent   ${FOCUS}`}
       >
         ⋯
       </button>
       {open && (
-        <span className="absolute left-0 top-6 z-30 flex w-56 flex-col gap-1 rounded-lg border border-neutral-200 bg-white p-2 text-xs shadow-md dark:border-neutral-800 dark:bg-neutral-900">
+        <span className="absolute left-0 top-6 z-30 flex w-56 flex-col gap-1 rounded-lg border border-line bg-card p-2 text-xs shadow-md">
           {moveTarget === null ? (
             <>
               <button type="button" className={ITEM} onClick={() => setRenaming(true)}>
@@ -167,17 +169,13 @@ export default function SectionMenu({
               >
                 Move down
               </button>
-              <button
-                type="button"
-                className={`${ITEM} text-red-600 dark:text-red-400`}
-                onClick={startDelete}
-              >
+              <button type="button" className={`${ITEM} text-danger `} onClick={startDelete}>
                 Delete
               </button>
             </>
           ) : (
             <>
-              <span className="px-2 text-neutral-500 dark:text-neutral-400">
+              <span className="px-2 text-muted ">
                 Move its {cardCount} card{cardCount === 1 ? "" : "s"} to:
               </span>
               <select
@@ -193,7 +191,7 @@ export default function SectionMenu({
               </select>
               <button
                 type="button"
-                className={`${ITEM} text-red-600 dark:text-red-400`}
+                className={`${ITEM} text-danger `}
                 onClick={() => moveAndDelete(moveTarget)}
               >
                 Move and delete
@@ -203,7 +201,7 @@ export default function SectionMenu({
               </button>
             </>
           )}
-          {error && <span className="px-2 text-red-600 dark:text-red-400">{error}</span>}
+          {error && <span className="px-2 text-danger ">{error}</span>}
         </span>
       )}
     </span>

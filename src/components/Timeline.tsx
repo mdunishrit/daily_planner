@@ -69,7 +69,7 @@ export default function Timeline({
 
   return (
     <div data-slot="timeline">
-      <h3 className="mb-2 text-xs text-neutral-500 dark:text-neutral-400">Timeline</h3>
+      <h3 className="mb-2 text-xs text-muted ">Timeline</h3>
       <textarea
         value={text}
         onChange={(event) => setText(event.target.value)}
@@ -91,30 +91,26 @@ export default function Timeline({
       >
         Add note
       </button>
-      {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mt-2 text-sm text-danger ">{error}</p>}
 
-      <ul className="mt-4 space-y-4 border-l border-neutral-200 pl-4 dark:border-neutral-800">
+      <ul className="mt-4 space-y-4 border-l border-line pl-4 ">
         {sorted.map((entry) => (
           <li key={entry.id} className="relative">
             <span
               className={`absolute -left-[21px] top-1.5 h-2 w-2 rounded-full ${
-                entry.kind === "note" ? "bg-brand-500" : "bg-neutral-300 dark:bg-neutral-600"
+                entry.kind === "note" ? "bg-accent" : "bg-line "
               }`}
             />
             <span
               title={new Date(entry.created_at).toLocaleString()}
-              className="block text-xs text-neutral-400 dark:text-neutral-500"
+              className="block text-xs text-muted "
             >
               {relativeTime(entry.created_at)}
             </span>
-            <span className="block text-sm text-neutral-700 dark:text-neutral-200">
-              {entry.text}
-            </span>
+            <span className="block text-sm text-ink ">{entry.text}</span>
           </li>
         ))}
-        {sorted.length === 0 && (
-          <li className="text-sm text-neutral-400 dark:text-neutral-500">No activity yet</li>
-        )}
+        {sorted.length === 0 && <li className="text-sm text-muted ">No activity yet</li>}
       </ul>
     </div>
   );

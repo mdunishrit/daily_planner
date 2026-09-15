@@ -1,15 +1,11 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import {
-  createPersonAction,
-  deletePersonAction,
-  updatePersonAction,
-} from "@/app/actions/people";
+import { createPersonAction, deletePersonAction, updatePersonAction } from "@/app/actions/people";
 import { BUTTON_PRIMARY, BUTTON_QUIET, FOCUS, INPUT } from "./ui";
 import type { Person } from "@/lib/types";
 
-const CELL = "px-4 py-3 text-sm text-neutral-700 dark:text-neutral-200";
+const CELL = "px-4 py-3 text-sm text-ink ";
 
 export default function PeopleTable({ people }: { people: Person[] }) {
   const [list, setList] = useState(people);
@@ -106,12 +102,12 @@ export default function PeopleTable({ people }: { people: Person[] }) {
         </button>
       </form>
 
-      {error && <p className="mb-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mb-2 text-sm text-danger ">{error}</p>}
 
-      <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="overflow-hidden rounded-lg border border-line bg-card shadow-card">
         <table className="w-full text-left">
           <thead>
-            <tr className="border-b border-neutral-200 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+            <tr className="border-b border-line text-xs text-muted  ">
               <th className="px-4 py-2 font-normal">Name</th>
               <th className="px-4 py-2 font-normal">Email</th>
               <th className="px-4 py-2" />
@@ -119,10 +115,7 @@ export default function PeopleTable({ people }: { people: Person[] }) {
           </thead>
           <tbody>
             {list.map((person) => (
-              <tr
-                key={person.id}
-                className="border-b border-neutral-100 last:border-0 dark:border-neutral-800"
-              >
+              <tr key={person.id} className="border-b border-line last:border-0 ">
                 {editId === person.id ? (
                   <>
                     <td className="px-4 py-2">
@@ -153,7 +146,7 @@ export default function PeopleTable({ people }: { people: Person[] }) {
                       <button
                         type="button"
                         onClick={() => setEditId(null)}
-                        className={`rounded-lg px-3 py-2 text-sm text-neutral-500 dark:text-neutral-400 ${FOCUS}`}
+                        className={`rounded-lg px-3 py-2 text-sm text-muted  ${FOCUS}`}
                       >
                         Cancel
                       </button>
@@ -178,14 +171,14 @@ export default function PeopleTable({ people }: { people: Person[] }) {
                               <button
                                 type="button"
                                 onClick={() => remove(person.id)}
-                                className={`mr-2 rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950 ${FOCUS}`}
+                                className={`mr-2 rounded-lg border border-danger px-3 py-2 text-sm text-danger     ${FOCUS}`}
                               >
                                 Confirm remove
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setConfirmId(null)}
-                                className={`rounded-lg px-3 py-2 text-sm text-neutral-500 dark:text-neutral-400 ${FOCUS}`}
+                                className={`rounded-lg px-3 py-2 text-sm text-muted  ${FOCUS}`}
                               >
                                 Cancel
                               </button>
@@ -194,7 +187,7 @@ export default function PeopleTable({ people }: { people: Person[] }) {
                             <button
                               type="button"
                               onClick={() => setConfirmId(person.id)}
-                              className={`rounded-lg px-3 py-2 text-sm text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400 ${FOCUS}`}
+                              className={`rounded-lg px-3 py-2 text-sm text-muted hover:text-danger   ${FOCUS}`}
                             >
                               Remove
                             </button>
@@ -208,7 +201,7 @@ export default function PeopleTable({ people }: { people: Person[] }) {
             ))}
             {list.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-4 text-sm text-neutral-500 dark:text-neutral-400">
+                <td colSpan={3} className="px-4 py-4 text-sm text-muted ">
                   No people yet.
                 </td>
               </tr>
