@@ -58,6 +58,7 @@ export default function Board({
 
   function openCard(card: BoardCard) {
     if (Date.now() - lastDragEnd.current < 250) return;
+    if (card.id.startsWith("temp-")) return;
     setSelected(card);
   }
 
@@ -118,16 +119,34 @@ export default function Board({
 
   function addCard(status: Status, title: string) {
     if (!title.trim() || sections.length === 0) return;
+    const sectionId = filters.get("section") || sections[0].id;
+    const tempId = `temp-${Date.now()}`;
+    const now = new Date().toISOString();
+    const optimistic: BoardCard = {
+      id: tempId,
+      title: title.trim(),
+      description: null,
+      link: null,
+      section_id: sectionId,
+      status,
+      priority: "normal",
+      position: columnCardsOf(localCards, status).length,
+      done_at: null,
+      created_at: now,
+      updated_at: now,
+      section_name: sections.find((s) => s.id === sectionId)?.name ?? "",
+      checklist_done: 0,
+      checklist_total: 0,
+      people: [],
+    };
+    setLocalCards((prev) => [...prev, optimistic]);
     setError(null);
     startTransition(async () => {
       try {
-        await createCardAction({
-          title: title.trim(),
-          sectionId: filters.get("section") || sections[0].id,
-          status,
-        });
+        await createCardAction({ title: optimistic.title, sectionId, status });
       } catch (e) {
         setError((e as Error).message);
+        setLocalCards((prev) => prev.filter((c) => c.id !== tempId));
       }
     });
   }
@@ -187,7 +206,7 @@ export default function Board({
                     ))}
                   </DragColumn>
                   <AddCard
-                    disabled={pending || sections.length === 0}
+                    disabled={sections.length === 0}
                     onAdd={(title) => addCard(col.status, title)}
                   />
                 </section>
