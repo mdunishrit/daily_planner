@@ -1,16 +1,45 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { createSectionAction } from "@/app/actions/sections";
 import { useFilters } from "@/lib/useFilters";
 import SectionMenu from "./SectionMenu";
 import { BUTTON_PRIMARY, CHIP, CHIP_ON, FOCUS, INPUT } from "./ui";
 import type { Section } from "@/lib/types";
 
+export type ApplySections = (next: Section[], work: () => Promise<unknown>) => void;
+
 /** Section chip strip: click a chip to filter, hover it for the rename/reorder/delete menu. */
-export default function SectionManager({ sections }: { sections: Section[] }) {
+export default function SectionManager({
+  sections,
+  cardCounts,
+}: {
+  sections: Section[];
+  cardCounts: Record<string, number>;
+}) {
   const filters = useFilters();
   const current = filters.get("section");
+  const [local, setLocal] = useState(sections);
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    setLocal(sections);
+  }, [sections]);
+
+  const apply: ApplySections = (next, work) => {
+    const before = local;
+    setLocal(next);
+    setError(null);
+    startTransition(async () => {
+      try {
+        await work();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed");
+        setLocal(before);
+      }
+    });
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -22,7 +51,7 @@ export default function SectionManager({ sections }: { sections: Section[] }) {
         All sections
       </button>
 
-      {sections.map((section, index) => (
+      {local.map((section, index) => (
         <span
           key={section.id}
           className="group flex items-center gap-1 rounded-full border border-neutral-200 px-3 py-1 transition-colors duration-150 hover:border-brand-500 dark:border-neutral-800"
@@ -38,22 +67,39 @@ export default function SectionManager({ sections }: { sections: Section[] }) {
           >
             {section.name}
           </button>
-          <span className="invisible group-hover:visible group-focus-within:visible">
-            <SectionMenu section={section} sections={sections} index={index} />
-          </span>
+          {!section.id.startsWith("temp-") && (
+            <span className="invisible group-hover:visible group-focus-within:visible">
+              <SectionMenu
+                section={section}
+                sections={local}
+                index={index}
+                cardCount={cardCounts[section.id] ?? 0}
+                apply={apply}
+              />
+            </span>
+          )}
         </span>
       ))}
 
-      <AddSection />
+      <AddSection
+        onAdd={(name) => {
+          const temp: Section = {
+            id: `temp-${Date.now()}`,
+            name,
+            position: local.length,
+            created_at: new Date().toISOString(),
+          };
+          apply([...local, temp], () => createSectionAction(name));
+        }}
+      />
+      {error && <span className="text-xs text-red-600 dark:text-red-400">{error}</span>}
     </div>
   );
 }
 
-function AddSection() {
+function AddSection({ onAdd }: { onAdd: (name: string) => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
 
   if (!open) {
     return (
@@ -74,16 +120,9 @@ function AddSection() {
         event.preventDefault();
         const trimmed = name.trim();
         if (!trimmed) return;
-        setError(null);
-        startTransition(async () => {
-          try {
-            await createSectionAction(trimmed);
-            setName("");
-            setOpen(false);
-          } catch (e) {
-            setError((e as Error).message);
-          }
-        });
+        onAdd(trimmed);
+        setName("");
+        setOpen(false);
       }}
     >
       <input
@@ -96,10 +135,9 @@ function AddSection() {
         }}
         className={`${INPUT} w-40 py-1 text-xs`}
       />
-      <button type="submit" disabled={pending} className={`${BUTTON_PRIMARY} py-1 text-xs`}>
+      <button type="submit" className={`${BUTTON_PRIMARY} py-1 text-xs`}>
         Add
       </button>
-      {error && <span className="text-xs text-red-600 dark:text-red-400">{error}</span>}
     </form>
   );
 }

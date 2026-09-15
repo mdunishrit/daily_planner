@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { addNoteAction } from "@/app/actions/activities";
 import { BUTTON_PRIMARY, INPUT } from "./ui";
-import type { CardDetail } from "@/lib/types";
+import type { Activity, CardDetail } from "@/lib/types";
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
@@ -25,28 +25,44 @@ export default function Timeline({
   detail: CardDetail | null;
   onChanged: () => void;
 }) {
+  const [entries, setEntries] = useState<Activity[]>(detail?.activities ?? []);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    setEntries(detail?.activities ?? []);
+  }, [detail]);
 
   if (!detail) return null;
 
   const cardId = detail.card.id;
-  const entries = [...detail.activities].sort(
+  const sorted = [...entries].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
 
   function add() {
     const note = text.trim();
     if (!note) return;
+    const temp: Activity = {
+      id: `temp-${Date.now()}`,
+      card_id: cardId,
+      kind: "note",
+      text: note,
+      created_at: new Date().toISOString(),
+    };
+    const before = entries;
+    setEntries([temp, ...entries]);
+    setText("");
     setError(null);
     startTransition(async () => {
       try {
         await addNoteAction(cardId, note);
-        setText("");
         onChanged();
       } catch (e) {
         setError((e as Error).message);
+        setEntries(before);
+        setText(note);
       }
     });
   }
@@ -57,6 +73,12 @@ export default function Timeline({
       <textarea
         value={text}
         onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            add();
+          }
+        }}
         rows={2}
         placeholder="Add a note"
         className={INPUT}
@@ -64,7 +86,7 @@ export default function Timeline({
       <button
         type="button"
         onClick={add}
-        disabled={pending || !text.trim()}
+        disabled={!text.trim()}
         className={`mt-2 ${BUTTON_PRIMARY}`}
       >
         Add note
@@ -72,7 +94,7 @@ export default function Timeline({
       {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       <ul className="mt-4 space-y-4 border-l border-neutral-200 pl-4 dark:border-neutral-800">
-        {entries.map((entry) => (
+        {sorted.map((entry) => (
           <li key={entry.id} className="relative">
             <span
               className={`absolute -left-[21px] top-1.5 h-2 w-2 rounded-full ${
@@ -90,7 +112,7 @@ export default function Timeline({
             </span>
           </li>
         ))}
-        {entries.length === 0 && (
+        {sorted.length === 0 && (
           <li className="text-sm text-neutral-400 dark:text-neutral-500">No activity yet</li>
         )}
       </ul>

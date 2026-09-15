@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  countCardsInSectionAction,
   deleteSectionAction,
   deleteSectionWithMoveAction,
   reorderSectionsAction,
   updateSectionAction,
 } from "@/app/actions/sections";
 import { BUTTON_PRIMARY, FOCUS, INPUT } from "./ui";
+import type { ApplySections } from "./SectionManager";
 import type { Section } from "@/lib/types";
 
 const ITEM = `rounded-md px-2 py-1 text-left text-xs text-neutral-600 hover:bg-neutral-100 disabled:opacity-40 dark:text-neutral-300 dark:hover:bg-neutral-800 ${FOCUS}`;
@@ -18,20 +18,23 @@ export default function SectionMenu({
   section,
   sections,
   index,
+  cardCount,
+  apply,
 }: {
   section: Section;
   sections: Section[];
   index: number;
+  cardCount: number;
+  apply: ApplySections;
 }) {
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(section.name);
   const [moveTarget, setMoveTarget] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
   const root = useRef<HTMLSpanElement>(null);
 
-  const others = sections.filter((s) => s.id !== section.id);
+  const others = sections.filter((s) => s.id !== section.id && !s.id.startsWith("temp-"));
 
   useEffect(() => {
     if (!open) return;
@@ -49,44 +52,52 @@ export default function SectionMenu({
     };
   }, [open]);
 
-  function run(work: () => Promise<unknown>) {
+  function done() {
+    setOpen(false);
+    setRenaming(false);
+    setMoveTarget(null);
     setError(null);
-    startTransition(async () => {
-      try {
-        await work();
-        setOpen(false);
-        setRenaming(false);
-        setMoveTarget(null);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed");
-      }
-    });
   }
 
   function move(offset: number) {
-    const ids = sections.map((s) => s.id);
     const to = index + offset;
-    if (to < 0 || to >= ids.length) return;
-    const next = [...ids];
+    if (to < 0 || to >= sections.length) return;
+    const next = [...sections];
     next.splice(to, 0, next.splice(index, 1)[0]);
-    run(() => reorderSectionsAction(next));
+    done();
+    apply(next, () => reorderSectionsAction(next.map((s) => s.id)));
+  }
+
+  function rename(trimmed: string) {
+    done();
+    apply(
+      sections.map((s) => (s.id === section.id ? { ...s, name: trimmed } : s)),
+      () => updateSectionAction(section.id, trimmed),
+    );
   }
 
   function startDelete() {
-    setError(null);
-    startTransition(async () => {
-      const count = await countCardsInSectionAction(section.id);
-      if (count === 0) {
-        await deleteSectionAction(section.id);
-        setOpen(false);
-        return;
-      }
-      if (others.length === 0) {
-        setError("No other section to move cards to.");
-        return;
-      }
-      setMoveTarget(others[0].id);
-    });
+    if (cardCount === 0) {
+      done();
+      apply(
+        sections.filter((s) => s.id !== section.id),
+        () => deleteSectionAction(section.id),
+      );
+      return;
+    }
+    if (others.length === 0) {
+      setError("No other section to move cards to.");
+      return;
+    }
+    setMoveTarget(others[0].id);
+  }
+
+  function moveAndDelete(target: string) {
+    done();
+    apply(
+      sections.filter((s) => s.id !== section.id),
+      () => deleteSectionWithMoveAction(section.id, target),
+    );
   }
 
   if (renaming) {
@@ -97,7 +108,7 @@ export default function SectionMenu({
           event.preventDefault();
           const trimmed = name.trim();
           if (!trimmed) return;
-          run(() => updateSectionAction(section.id, trimmed));
+          rename(trimmed);
         }}
       >
         <input
@@ -106,7 +117,7 @@ export default function SectionMenu({
           onChange={(event) => setName(event.target.value)}
           className={`${INPUT} w-32 py-0.5 text-xs`}
         />
-        <button type="submit" disabled={pending} className={`${BUTTON_PRIMARY} px-2 py-0.5 text-xs`}>
+        <button type="submit" className={`${BUTTON_PRIMARY} px-2 py-0.5 text-xs`}>
           Save
         </button>
         <button
@@ -143,7 +154,7 @@ export default function SectionMenu({
               <button
                 type="button"
                 className={ITEM}
-                disabled={index === 0 || pending}
+                disabled={index === 0}
                 onClick={() => move(-1)}
               >
                 Move up
@@ -151,7 +162,7 @@ export default function SectionMenu({
               <button
                 type="button"
                 className={ITEM}
-                disabled={index === sections.length - 1 || pending}
+                disabled={index === sections.length - 1}
                 onClick={() => move(1)}
               >
                 Move down
@@ -159,7 +170,6 @@ export default function SectionMenu({
               <button
                 type="button"
                 className={`${ITEM} text-red-600 dark:text-red-400`}
-                disabled={pending}
                 onClick={startDelete}
               >
                 Delete
@@ -167,7 +177,9 @@ export default function SectionMenu({
             </>
           ) : (
             <>
-              <span className="px-2 text-neutral-500 dark:text-neutral-400">Move its cards to:</span>
+              <span className="px-2 text-neutral-500 dark:text-neutral-400">
+                Move its {cardCount} card{cardCount === 1 ? "" : "s"} to:
+              </span>
               <select
                 value={moveTarget}
                 onChange={(event) => setMoveTarget(event.target.value)}
@@ -182,8 +194,7 @@ export default function SectionMenu({
               <button
                 type="button"
                 className={`${ITEM} text-red-600 dark:text-red-400`}
-                disabled={pending}
-                onClick={() => run(() => deleteSectionWithMoveAction(section.id, moveTarget))}
+                onClick={() => moveAndDelete(moveTarget)}
               >
                 Move and delete
               </button>
