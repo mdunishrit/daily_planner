@@ -54,7 +54,9 @@ export async function createCard(input: CreateCardInput): Promise<Card> {
     .select("*")
     .single();
   if (error) throw new Error(error.message);
-  return data as Card;
+  const card = data as Card;
+  await addActivity(card.id, "change", `Created: ${card.title}`);
+  return card;
 }
 
 export async function getCardDetail(cardId: string): Promise<CardDetail | null> {
@@ -117,6 +119,13 @@ export async function updateCard(cardId: string, input: UpdateCardInput): Promis
 
   if (input.title !== undefined && input.title !== prev.title) {
     await addActivity(cardId, "change", `Title: ${prev.title} → ${next.title}`);
+  }
+  if (input.description !== undefined && (next.description ?? "") !== (prev.description ?? "")) {
+    await addActivity(
+      cardId,
+      "change",
+      next.description ? `Description updated:\n${next.description}` : "Description cleared",
+    );
   }
   if (input.priority !== undefined && input.priority !== prev.priority) {
     await addActivity(
